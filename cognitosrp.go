@@ -46,9 +46,10 @@ func NewCognitoSRP(username, password, poolId, clientId string, clientSecret *st
 	}
 
 	if !strings.Contains(poolId, "_") {
-		return nil, fmt.Errorf("invalid Cognito User Pool ID (%s), must be in format: '<region>_<pool name>'", poolId)
+		c.poolName = poolId
+	} else {
+		c.poolName = strings.Split(poolId, "_")[1]
 	}
-	c.poolName = strings.Split(poolId, "_")[1]
 
 	c.bigN = hexToBig(nHex)
 	c.g = hexToBig(gHex)
