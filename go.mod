@@ -1,3 +1,3 @@
-module github.com/bchisham/cognito-srp/v4
+module github.com/bchisham/cognito-srp
 
-go 1.15
+go 1.23
