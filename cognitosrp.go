@@ -141,7 +141,7 @@ func (csrp *CognitoSRP) PasswordVerifierChallenge(challengeParms map[string]stri
 		srpBHex          = challengeParms["SRP_B"]
 		secretBlockB64   = challengeParms["SECRET_BLOCK"]
 
-		timestamp = ts.In(time.UTC).Format("Mon Jan 2 03:04:05 MST 2006")
+		timestamp = ts.In(time.UTC).Format(time.UnixDate) //.Format("Mon Jan 2 03:04:05 MST 2006")
 		hkdf      = csrp.getPasswordAuthenticationKey(userId, csrp.password, hexToBig(srpBHex), hexToBig(saltHex))
 	)
 
