@@ -133,7 +133,7 @@ func (csrp *CognitoSRP) GetSecretHash(username string) (string, error) {
 // PasswordVerifierChallenge returns the ChallengeResponses map to be used
 // inside the cognitoidentityprovider.RespondToAuthChallengeInput object which
 // fulfils the PASSWORD_VERIFIER Cognito challenge
-func (csrp *CognitoSRP) PasswordVerifierChallenge(challengeParms map[string]string, ts time.Time) (map[string]string, error) {
+func (csrp *CognitoSRP) PasswordVerifierChallenge(challengeParms map[string]string, ts time.Time, deviceGroupKey string, deviceKey string, devicePassword string) (map[string]string, error) {
 	var (
 		internalUsername = challengeParms["USERNAME"]
 		userId           = challengeParms["USER_ID_FOR_SRP"]
@@ -142,7 +142,7 @@ func (csrp *CognitoSRP) PasswordVerifierChallenge(challengeParms map[string]stri
 		secretBlockB64   = challengeParms["SECRET_BLOCK"]
 
 		timestamp = ts.In(time.UTC).Format(time.UnixDate) //.Format("Mon Jan 2 03:04:05 MST 2006")
-		hkdf      = csrp.getPasswordAuthenticationKey(userId, csrp.password, hexToBig(srpBHex), hexToBig(saltHex))
+		hkdf      = csrp.getPasswordVerifierAuthenticationKey(deviceGroupKey, deviceKey, devicePassword, srpBHex, saltHex)
 	)
 
 	secretBlockBytes, err := base64.StdEncoding.DecodeString(secretBlockB64)
@@ -181,6 +181,20 @@ func (csrp *CognitoSRP) calculateA() *big.Int {
 	}
 
 	return bigA
+}
+
+// see: https://stackoverflow.com/questions/78647789/device-password-verifier-challenge-response-in-aws-cognito-using-node-js-incorr
+func (csrp *CognitoSRP) getPasswordVerifierAuthenticationKey(deviceGroupKey, deviceKey, devicePassword string, srpB, salt string) []byte {
+	usernamePassword := fmt.Sprintf("%s%s:%s", deviceGroupKey, deviceKey, devicePassword)
+	usernamePasswordHash := hashSha256([]byte(usernamePassword))
+	bigB := hexToBig(srpB)
+	uVal := calculateU(csrp.bigA, hexToBig(srpB))
+	xVal := hexToBig(hexHash(padHex(salt) + usernamePasswordHash))
+	gModPowXN := big.NewInt(0).Exp(csrp.g, xVal, csrp.bigN)
+	intVal1 := big.NewInt(0).Sub(bigB, big.NewInt(0).Mul(csrp.k, gModPowXN))
+	intVal2 := big.NewInt(0).Add(csrp.a, big.NewInt(0).Mul(uVal, xVal))
+	sVal := big.NewInt(0).Exp(intVal1, intVal2, csrp.bigN)
+	return computeHKDF(padHex(sVal.Text(16)), padHex(bigToHex(uVal)))
 }
 
 func (csrp *CognitoSRP) getPasswordAuthenticationKey(username, password string, bigB, salt *big.Int) []byte {
